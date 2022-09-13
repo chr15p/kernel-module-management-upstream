@@ -81,6 +81,39 @@ type Build struct {
 	KanikoParams *KanikoParams `json:"kanikoParams,omitempty"`
 }
 
+type Sign struct {
+	// UnsignedImage contains the name of an image containing kernel modules to sign
+	UnsignedImage string `json:"unsignedImage"`
+
+	// +optional
+	// SignedImage contains the name of the image to produce containing the signed kmods
+	// defaults to module.spec.kernelmappings[x].containerImage
+	SignedImage string `json:"signedimage,omitempty"`
+
+	// a secret containing the private key used to sign kernel modules for secureboot
+	KeySecret *v1.LocalObjectReference `json:"keySecret"`
+
+	// a secret containing the public key used to sign kernel modules for secureboot
+	CertSecret *v1.LocalObjectReference `json:"certSecret"`
+
+	// +optional
+	// paths inside the image for the kernel modules to sign
+	FilesToSign []string `json:"filesToSign,omitempty"`
+
+	//// +optional
+	//// secret containing the credentials to pull and push the UnsignedImage and SignedImage
+	//ImagePullSecret *v1.LocalObjectReference `json:"imagePullSecret,omitempty"`
+
+	// +optional
+	// Pull contains settings determining how to check if the DriverContainer image already exists.
+	Pull *PullOptions `json:"pull,omitempty"`
+
+	// +optional
+	// Push contains settings determining how to push a built DriverContainer image.
+	Push *PushOptions `json:"push,omitempty"`
+}
+
+
 // KernelMapping pairs kernel versions with a DriverContainer image.
 // Kernel versions can be matched literally or using a regular expression.
 type KernelMapping struct {
@@ -88,6 +121,10 @@ type KernelMapping struct {
 	// +optional
 	// Build enables in-cluster builds for this mapping and allows overriding the Module's build settings.
 	Build *Build `json:"build"`
+
+	// +optional
+	// Sign enables in-cluster signing for this mapping
+	Sign *Sign `json:"sign"`
 
 	// ContainerImage is the name of the DriverContainer image that should be used to deploy the module.
 	ContainerImage string `json:"containerImage"`
@@ -151,6 +188,10 @@ type ModuleLoaderContainerSpec struct {
 	// Build contains build instructions.
 	// +optional
 	Build *Build `json:"build,omitempty"`
+
+	// Sign contains default settings for signing kmods (overridden by values in KernelMapping.sign).
+	// +optional
+	Sign *Sign `json:"sign,omitempty"`
 
 	// ContainerImage is a top-level field
 	// +optional

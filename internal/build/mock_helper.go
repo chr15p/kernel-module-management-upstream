@@ -66,3 +66,17 @@ func (mr *MockHelperMockRecorder) GetRelevantBuild(mod, km interface{}) *gomock.
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelevantBuild", reflect.TypeOf((*MockHelper)(nil).GetRelevantBuild), mod, km)
 }
+
+// GetRelevantSign mocks base method.
+func (m *MockHelper) GetRelevantSign(mod v1beta1.Module, km v1beta1.KernelMapping) *v1beta1.Sign {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelevantSign", mod, km)
+	ret0, _ := ret[0].(*v1beta1.Sign)
+	return ret0
+}
+
+// GetRelevantSign indicates an expected call of GetRelevantSign.
+func (mr *MockHelperMockRecorder) GetRelevantSign(mod, km interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelevantSign", reflect.TypeOf((*MockHelper)(nil).GetRelevantSign), mod, km)
+}

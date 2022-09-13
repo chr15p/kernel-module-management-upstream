@@ -12,6 +12,7 @@ import (
 type Helper interface {
 	ApplyBuildArgOverrides(args []v1beta1.BuildArg, overrides ...v1beta1.BuildArg) []v1beta1.BuildArg
 	GetRelevantBuild(mod kmmv1beta1.Module, km kmmv1beta1.KernelMapping) *kmmv1beta1.Build
+	GetRelevantSign(mod kmmv1beta1.Module, km kmmv1beta1.KernelMapping) *kmmv1beta1.Sign
 }
 
 type helper struct{}
@@ -67,3 +68,52 @@ func (m *helper) GetRelevantBuild(mod kmmv1beta1.Module, km kmmv1beta1.KernelMap
 	buildConfig.Secrets = append(buildConfig.Secrets, km.Build.Secrets...)
 	return buildConfig
 }
+
+func (m *helper) GetRelevantSign(mod kmmv1beta1.Module, km kmmv1beta1.KernelMapping) *kmmv1beta1.Sign {
+	if mod.Spec.ModuleLoader.Container.Sign == nil {
+		// km.Build cannot be nil in case mod.Build is nil, checked above
+		return km.Sign.DeepCopy()
+	}
+
+	if km.Sign == nil {
+		return mod.Spec.ModuleLoader.Container.Sign.DeepCopy()
+	}
+
+	signConfig := mod.Spec.ModuleLoader.Container.Sign.DeepCopy()
+
+	// this would be better done with reflection but this will work for the moment
+	// while we get all the defaults nailed down
+	if km.Sign.UnsignedImage != "" {
+		// this should default to whatevcer the build produces
+		signConfig.UnsignedImage = km.Sign.UnsignedImage
+	}
+
+	if km.Sign.SignedImage != "" {
+		signConfig.SignedImage = km.Sign.SignedImage
+	} else if (signConfig.SignedImage == ""){
+		signConfig.SignedImage = mod.Spec.ModuleLoader.Container.ContainerImage
+	}
+
+	if km.Sign.KeySecret != nil {
+		signConfig.KeySecret = km.Sign.KeySecret
+	}
+
+	if km.Sign.CertSecret != nil {
+		signConfig.CertSecret = km.Sign.CertSecret
+	}
+
+	if len(km.Sign.FilesToSign) > 0 {
+		signConfig.FilesToSign = km.Sign.FilesToSign
+	}
+
+	if km.Sign.Pull != nil {
+		signConfig.Pull = km.Sign.Pull
+	}
+
+	if km.Sign.Push != nil {
+		signConfig.Push = km.Sign.Push
+	}
+
+	return signConfig
+}
+
