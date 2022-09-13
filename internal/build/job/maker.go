@@ -101,7 +101,7 @@ func (m *maker) MakeJob(mod kmmv1beta1.Module, buildConfig *kmmv1beta1.Build, ta
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: mod.Name + "-build-",
 			Namespace:    mod.Namespace,
-			Labels:       labels(mod, targetKernel),
+			Labels:       labels(mod, targetKernel, "build"),
 		},
 		Spec: batchv1.JobSpec{
 			Completions: pointer.Int32(1),

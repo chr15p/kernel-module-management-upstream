@@ -29,18 +29,30 @@ func NewBuildManager(client client.Client, maker Maker, helper build.Helper) *jo
 	}
 }
 
-func labels(mod kmmv1beta1.Module, targetKernel string) map[string]string {
+func labels(mod kmmv1beta1.Module, targetKernel string, buildstage string) map[string]string {
 	return map[string]string{
 		constants.ModuleNameLabel:    mod.Name,
 		constants.TargetKernelTarget: targetKernel,
+		constants.BuildStage:         buildstage,
 	}
+}
+
+func (jbm *jobManager) GetName() string {
+	return "build"
+}
+
+func (jbm *jobManager) ShouldRun(mod *kmmv1beta1.Module, km *kmmv1beta1.KernelMapping) bool{
+        if mod.Spec.ModuleLoader.Container.Build == nil && km.Build == nil {
+                return false
+        }
+        return true
 }
 
 func (jbm *jobManager) getJob(ctx context.Context, mod kmmv1beta1.Module, targetKernel string) (*batchv1.Job, error) {
 	jobList := batchv1.JobList{}
 
 	opts := []client.ListOption{
-		client.MatchingLabels(labels(mod, targetKernel)),
+		client.MatchingLabels(labels(mod, targetKernel, jbm.GetName())),
 		client.InNamespace(mod.Namespace),
 	}
 
@@ -57,7 +69,7 @@ func (jbm *jobManager) getJob(ctx context.Context, mod kmmv1beta1.Module, target
 	return &jobList.Items[0], nil
 }
 
-func (jbm *jobManager) Sync(ctx context.Context, mod kmmv1beta1.Module, m kmmv1beta1.KernelMapping, targetKernel string, pushImage bool) (build.Result, error) {
+func (jbm *jobManager) Sync(ctx context.Context, mod kmmv1beta1.Module, m kmmv1beta1.KernelMapping, targetKernel string, containerImage string, pushImage bool) (build.Result, error) {
 	logger := log.FromContext(ctx)
 
 	logger.Info("Building in-cluster")
@@ -71,7 +83,7 @@ func (jbm *jobManager) Sync(ctx context.Context, mod kmmv1beta1.Module, m kmmv1b
 
 		logger.Info("Creating job")
 
-		job, err = jbm.maker.MakeJob(mod, buildConfig, targetKernel, m.ContainerImage, pushImage)
+		job, err = jbm.maker.MakeJob(mod, buildConfig, targetKernel, containerImage, pushImage)
 		if err != nil {
 			return build.Result{}, fmt.Errorf("could not make Job: %v", err)
 		}

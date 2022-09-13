@@ -122,6 +122,7 @@ func main() {
 	metricsAPI.Register()
 	registryAPI := registry.NewRegistry()
 	helperAPI := build.NewHelper()
+
 	makerAPI := job.NewMaker(helperAPI, scheme)
 	buildAPI := job.NewBuildManager(client, makerAPI, helperAPI)
 	daemonAPI := daemonset.NewCreator(client, kernelLabel, scheme)
@@ -130,7 +131,7 @@ func main() {
 	preflightStatusUpdaterAPI := statusupdater.NewPreflightStatusUpdater(client)
 	preflightAPI := preflight.NewPreflightAPI(client, registryAPI, kernelAPI)
 
-	mc := controllers.NewModuleReconciler(client, buildAPI, daemonAPI, kernelAPI, metricsAPI, filter, registryAPI, moduleStatusUpdaterAPI)
+	mc := controllers.NewModuleReconciler(client, daemonAPI, kernelAPI, metricsAPI, filter, registryAPI, moduleStatusUpdaterAPI, buildAPI)
 
 	if err = mc.SetupWithManager(mgr, kernelLabel); err != nil {
 		setupLogger.Error(err, "unable to create controller", "controller", "Module")

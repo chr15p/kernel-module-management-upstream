@@ -20,16 +20,18 @@ var _ = Describe("Labels", func() {
 		const (
 			moduleName   = "module-name"
 			targetKernel = "1.2.3"
+			buildStage = "test"
 		)
 
 		mod := kmmv1beta1.Module{
 			ObjectMeta: metav1.ObjectMeta{Name: moduleName},
 		}
 
-		labels := labels(mod, targetKernel)
+		labels := labels(mod, targetKernel, buildStage)
 
 		Expect(labels).To(HaveKeyWithValue(constants.ModuleNameLabel, moduleName))
 		Expect(labels).To(HaveKeyWithValue(constants.TargetKernelTarget, targetKernel))
+		Expect(labels).To(HaveKeyWithValue(constants.BuildStage, buildStage))
 	})
 })
 
@@ -66,6 +68,7 @@ var _ = Describe("JobManager", func() {
 			moduleName    = "module-name"
 			kernelVersion = "1.2.3"
 			jobName       = "some-job"
+			buildStage    = "build"
 		)
 
 		mod := kmmv1beta1.Module{
@@ -76,7 +79,7 @@ var _ = Describe("JobManager", func() {
 			func(s batchv1.JobStatus, r build.Result, expectsErr bool) {
 				j := batchv1.Job{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels:    labels(mod, kernelVersion),
+						Labels:    labels(mod, kernelVersion, buildStage),
 						Namespace: namespace,
 					},
 					Status: s,
@@ -95,7 +98,7 @@ var _ = Describe("JobManager", func() {
 
 				mgr := NewBuildManager(clnt, maker, helper)
 
-				res, err := mgr.Sync(ctx, mod, km, kernelVersion, true)
+				res, err := mgr.Sync(ctx, mod, km, kernelVersion, imageName, true)
 
 				if expectsErr {
 					Expect(err).To(HaveOccurred())
@@ -121,7 +124,7 @@ var _ = Describe("JobManager", func() {
 			mgr := NewBuildManager(clnt, maker, helper)
 
 			Expect(
-				mgr.Sync(ctx, mod, km, kernelVersion, true),
+				mgr.Sync(ctx, mod, km, kernelVersion, imageName, true),
 			).Error().To(
 				HaveOccurred(),
 			)
@@ -154,7 +157,7 @@ var _ = Describe("JobManager", func() {
 			mgr := NewBuildManager(clnt, maker, helper)
 
 			Expect(
-				mgr.Sync(ctx, mod, km, kernelVersion, true),
+				mgr.Sync(ctx, mod, km, kernelVersion, imageName, true),
 			).To(
 				Equal(build.Result{Requeue: true, Status: build.StatusCreated}),
 			)

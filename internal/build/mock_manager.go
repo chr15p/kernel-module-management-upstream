@@ -35,17 +35,45 @@ func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 	return m.recorder
 }
 
+// GetName mocks base method.
+func (m *MockManager) GetName() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetName")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetName indicates an expected call of GetName.
+func (mr *MockManagerMockRecorder) GetName() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetName", reflect.TypeOf((*MockManager)(nil).GetName))
+}
+
+// ShouldRun mocks base method.
+func (m *MockManager) ShouldRun(mod *v1beta1.Module, km *v1beta1.KernelMapping) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ShouldRun", mod, km)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ShouldRun indicates an expected call of ShouldRun.
+func (mr *MockManagerMockRecorder) ShouldRun(mod, km interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldRun", reflect.TypeOf((*MockManager)(nil).ShouldRun), mod, km)
+}
+
 // Sync mocks base method.
-func (m_2 *MockManager) Sync(ctx context.Context, mod v1beta1.Module, m v1beta1.KernelMapping, targetKernel string, pushImage bool) (Result, error) {
+func (m_2 *MockManager) Sync(ctx context.Context, mod v1beta1.Module, m v1beta1.KernelMapping, targetKernel, containerImage string, pushImage bool) (Result, error) {
 	m_2.ctrl.T.Helper()
-	ret := m_2.ctrl.Call(m_2, "Sync", ctx, mod, m, targetKernel, pushImage)
+	ret := m_2.ctrl.Call(m_2, "Sync", ctx, mod, m, targetKernel, containerImage, pushImage)
 	ret0, _ := ret[0].(Result)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Sync indicates an expected call of Sync.
-func (mr *MockManagerMockRecorder) Sync(ctx, mod, m, targetKernel, pushImage interface{}) *gomock.Call {
+func (mr *MockManagerMockRecorder) Sync(ctx, mod, m, targetKernel, containerImage, pushImage interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sync", reflect.TypeOf((*MockManager)(nil).Sync), ctx, mod, m, targetKernel, pushImage)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sync", reflect.TypeOf((*MockManager)(nil).Sync), ctx, mod, m, targetKernel, containerImage, pushImage)
 }

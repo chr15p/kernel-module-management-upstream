@@ -50,7 +50,7 @@ import (
 type ModuleReconciler struct {
 	client.Client
 
-	buildAPI         build.Manager
+	buildAPI         []build.Manager
 	daemonAPI        daemonset.DaemonSetCreator
 	kernelAPI        module.KernelMapper
 	metricsAPI       metrics.Metrics
@@ -61,13 +61,13 @@ type ModuleReconciler struct {
 
 func NewModuleReconciler(
 	client client.Client,
-	buildAPI build.Manager,
 	daemonAPI daemonset.DaemonSetCreator,
 	kernelAPI module.KernelMapper,
 	metricsAPI metrics.Metrics,
 	filter *filter.Filter,
 	registry registry.Registry,
-	statusUpdaterAPI statusupdater.ModuleStatusUpdater) *ModuleReconciler {
+	statusUpdaterAPI statusupdater.ModuleStatusUpdater,
+	buildAPI ...build.Manager) *ModuleReconciler {
 	return &ModuleReconciler{
 		Client:           client,
 		buildAPI:         buildAPI,
@@ -123,22 +123,29 @@ func (r *ModuleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return res, fmt.Errorf("could get DaemonSets for module %s: %v", mod.Name, err)
 	}
 
-	for kernelVersion, m := range mappings {
-		requeue, err := r.handleBuild(ctx, mod, m, kernelVersion)
-		if err != nil {
-			return res, fmt.Errorf("failed to handle build for kernel version %s: %w", kernelVersion, err)
-		}
-		if requeue {
-			logger.Info("Build requires a requeue; skipping handling driver container for now", "kernelVersion", kernelVersion, "image", m)
-			res.Requeue = true
-			continue
-		}
+        OUTER:
+        for kernelVersion, m := range mappings {
+		//loop through the build stages (normally build then sign) 
+                for i, api := range r.buildAPI {
+                        logger.Info( "handling build", "stage", api.GetName(), "kernelVersion", kernelVersion, "image", m)
+                        requeue, err := r.handleBuild(ctx, mod, m, kernelVersion, i)
+                        if err != nil {
+                                return res, fmt.Errorf("failed to handle %s for kernel version %s: %w", api.GetName(), kernelVersion, err)
+                        }
+                        if requeue {
+                                logger.Info( "Job requires a requeue; skipping handling driver container for now", "Job", api.GetName(), "kernelVersion", kernelVersion, "image", m)
+                                res.Requeue = true
+				// this stage is running so we dont wnat to run the next stage, and we're not done so can't r.handleDriverContainer() yet
+                                continue OUTER
+                        }
+                }
 
-		err = r.handleDriverContainer(ctx, mod, m, dsByKernelVersion, kernelVersion)
-		if err != nil {
-			return res, fmt.Errorf("failed to handle driver container for kernel version %s: %v", kernelVersion, err)
-		}
-	}
+                err = r.handleDriverContainer(ctx, mod, m, dsByKernelVersion, kernelVersion)
+                if err != nil {
+                        return res, fmt.Errorf("failed to handle driver container for kernel version %s: %v", kernelVersion, err)
+                }
+
+        }
 
 	logger.Info("Handle device plugin")
 	err = r.handleDevicePlugin(ctx, mod)
@@ -227,14 +234,28 @@ func (r *ModuleReconciler) getNodesListBySelector(ctx context.Context, mod *kmmv
 	return nodes.Items, nil
 }
 
-func (r *ModuleReconciler) handleBuild(ctx context.Context,
+func (r *ModuleReconciler) handleBuild(
+	ctx context.Context,
 	mod *kmmv1beta1.Module,
 	km *kmmv1beta1.KernelMapping,
-	kernelVersion string) (bool, error) {
-	if mod.Spec.ModuleLoader.Container.Build == nil && km.Build == nil {
+	kernelVersion string,
+	i int) (bool, error) {
+
+	api := r.buildAPI[i]
+
+	// the build stage itself should check the CR for the data needed to run
+	if api.ShouldRun(mod, km) == false {
 		return false, nil
 	}
-	exists, err := r.checkImageExists(ctx, mod, km)
+
+	// if this is not the last build stage then give the prosduced container a temporary name
+	containerImage := km.ContainerImage
+	if len(r.buildAPI)-1 > i {
+		containerImage += "-" + api.GetName()
+	}
+
+	// check the image we're going to produce doesn't already exist
+	exists, err := r.checkImageExists(ctx, mod, km, containerImage)
 	if err != nil {
 		return false, fmt.Errorf("failed to check image existence for kernel %s: %w", kernelVersion, err)
 	}
@@ -245,7 +266,8 @@ func (r *ModuleReconciler) handleBuild(ctx context.Context,
 	logger := log.FromContext(ctx).WithValues("kernel version", kernelVersion, "image", km.ContainerImage)
 	buildCtx := log.IntoContext(ctx, logger)
 
-	buildRes, err := r.buildAPI.Sync(buildCtx, *mod, *km, kernelVersion, true)
+	// if the image doesn't exist then run Sync for the appropriate build.Manager 
+	buildRes, err := api.Sync(buildCtx, *mod, *km, kernelVersion, containerImage, true)
 	if err != nil {
 		return false, fmt.Errorf("could not synchronize the build: %w", err)
 	}
@@ -260,10 +282,10 @@ func (r *ModuleReconciler) handleBuild(ctx context.Context,
 	return buildRes.Requeue, nil
 }
 
-func (r *ModuleReconciler) checkImageExists(ctx context.Context, mod *kmmv1beta1.Module, km *kmmv1beta1.KernelMapping) (bool, error) {
+func (r *ModuleReconciler) checkImageExists(ctx context.Context, mod *kmmv1beta1.Module, km *kmmv1beta1.KernelMapping, containerImage string) (bool, error) {
 	registryAuthGetter := auth.NewRegistryAuthGetterFrom(r.Client, mod)
 	pullOptions := module.GetRelevantPullOptions(mod, km)
-	imageAvailable, err := r.registry.ImageExists(ctx, km.ContainerImage, pullOptions, registryAuthGetter)
+	imageAvailable, err := r.registry.ImageExists(ctx, containerImage, pullOptions, registryAuthGetter)
 	if err != nil {
 		return false, fmt.Errorf("could not check if the image is available: %v", err)
 	}

@@ -23,6 +23,7 @@ var _ = Describe("MakeJob", func() {
 		kernelVersion  = "1.2.3"
 		moduleName     = "module-name"
 		namespace      = "some-namespace"
+		buildStage     = "build"
 	)
 
 	var (
@@ -70,6 +71,8 @@ var _ = Describe("MakeJob", func() {
 				Labels: map[string]string{
 					constants.ModuleNameLabel:    moduleName,
 					constants.TargetKernelTarget: kernelVersion,
+					constants.BuildStage:         buildStage,
+
 				},
 				OwnerReferences: []metav1.OwnerReference{
 					{
