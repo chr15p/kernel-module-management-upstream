@@ -19,7 +19,7 @@ func NewSignerHelper() Helper {
 func (m *helper) GetRelevantSign(mod kmmv1beta1.Module, km kmmv1beta1.KernelMapping) *kmmv1beta1.Sign {
 
 	if mod.Spec.ModuleLoader.Container.Sign == nil {
-		// km.Build cannot be nil in case mod.Build is nil, checked above
+		// km.Sign cannot be nil in case mod.Sign is nil, checked above
 		return km.Sign.DeepCopy()
 	}
 

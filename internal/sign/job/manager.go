@@ -62,14 +62,14 @@ func (jbm *signJobManager) getJob(ctx context.Context, mod kmmv1beta1.Module, ta
 	return &jobList.Items[0], nil
 }
 
-func (jbm *signJobManager) Sync(ctx context.Context, mod kmmv1beta1.Module, m kmmv1beta1.KernelMapping, targetKernel string, previousImage string, targetImage string, pushImage bool) (sign.Result, error) {
+func (jbm *signJobManager) Sync(ctx context.Context, mod kmmv1beta1.Module, m kmmv1beta1.KernelMapping, targetKernel string, imageToSign string, targetImage string, pushImage bool) (sign.Result, error) {
 	logger := log.FromContext(ctx)
 
-	logger.Info("Building in-cluster")
+	logger.Info("Signing in-cluster")
 
 	signConfig := jbm.helper.GetRelevantSign(mod, m)
 
-	jobTemplate, err := jbm.signer.MakeJobTemplate(mod, signConfig, targetKernel, previousImage, targetImage, pushImage)
+	jobTemplate, err := jbm.signer.MakeJobTemplate(mod, signConfig, targetKernel, imageToSign, targetImage, pushImage)
 	if err != nil {
 		return sign.Result{}, fmt.Errorf("could not make Job template: %v", err)
 	}
@@ -95,13 +95,13 @@ func (jbm *signJobManager) Sync(ctx context.Context, mod kmmv1beta1.Module, m km
 	}
 
 	if changed {
-		logger.Info("The module's build spec has been changed, deleting the current job so a new one can be created", "name", job.Name)
+		logger.Info("The module's sign spec has been changed, deleting the current job so a new one can be created", "name", job.Name)
 		opts := []client.DeleteOption{
 			client.PropagationPolicy(metav1.DeletePropagationBackground),
 		}
 		err = jbm.client.Delete(ctx, job, opts...)
 		if err != nil {
-			logger.Info(utils.WarnString(fmt.Sprintf("failed to delete build job %s: %v", job.Name, err)))
+			logger.Info(utils.WarnString(fmt.Sprintf("failed to delete signing job %s: %v", job.Name, err)))
 		}
 		return sign.Result{Status: sign.StatusInProgress, Requeue: true}, nil
 	}

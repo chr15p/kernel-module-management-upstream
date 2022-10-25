@@ -22,5 +22,5 @@ type Result struct {
 //go:generate mockgen -source=manager.go -package=sign -destination=mock_manager.go
 
 type SignManager interface {
-	Sync(ctx context.Context, mod kmmv1beta1.Module, m kmmv1beta1.KernelMapping, targetKernel string, previousImage string, targetImage string, pushImage bool) (Result, error)
+	Sync(ctx context.Context, mod kmmv1beta1.Module, m kmmv1beta1.KernelMapping, targetKernel string, imageToSign string, targetImage string, pushImage bool) (Result, error)
 }
