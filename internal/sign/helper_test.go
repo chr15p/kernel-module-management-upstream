@@ -1,7 +1,7 @@
 package sign
 
 import (
-	"github.com/golang/mock/gomock"
+	//"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 	kmmv1beta1 "github.com/kubernetes-sigs/kernel-module-management/api/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
@@ -20,17 +20,11 @@ var _ = Describe("GetRelevantSign", func() {
 	)
 
 	var (
-		ctrl *gomock.Controller
-		h    Helper
+		h Helper
 	)
 
 	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
 		h = NewSignerHelper()
-	})
-
-	AfterEach(func() {
-		ctrl.Finish()
 	})
 
 	expected := &kmmv1beta1.Sign{

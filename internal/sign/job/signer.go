@@ -52,13 +52,14 @@ func (m *signer) MakeJobTemplate(mod kmmv1beta1.Module, signConfig *kmmv1beta1.S
 		args = append(args, "-filestosign", strings.Join(signConfig.FilesToSign, ":"))
 	}
 
-	volumes := []v1.Volume{}
-	volumeMounts := []v1.VolumeMount{}
-	volumes = append(volumes, m.makeImageSigningSecretVolume(signConfig.KeySecret, "key", "key.priv"))
-	volumes = append(volumes, m.makeImageSigningSecretVolume(signConfig.CertSecret, "cert", "public.der"))
-
-	volumeMounts = append(volumeMounts, m.makeImageSecretVolumeMount(signConfig.CertSecret, "/signingcert"))
-	volumeMounts = append(volumeMounts, m.makeImageSecretVolumeMount(signConfig.KeySecret, "/signingkey"))
+	volumes := []v1.Volume{
+		m.makeImageSigningSecretVolume(signConfig.KeySecret, "key", "key.priv"),
+		m.makeImageSigningSecretVolume(signConfig.CertSecret, "cert", "public.der"),
+	}
+	volumeMounts := []v1.VolumeMount{
+		m.makeImageSecretVolumeMount(signConfig.CertSecret, "/signingcert"),
+		m.makeImageSecretVolumeMount(signConfig.KeySecret, "/signingkey"),
+	}
 
 	if mod.Spec.ImageRepoSecret != nil {
 		args = append(args, "-pullsecret", "/docker_config/config.json")
