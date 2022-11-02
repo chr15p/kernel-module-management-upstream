@@ -43,6 +43,11 @@ var _ = Describe("MakeJobTemplate", func() {
 		ctrl.Finish()
 	})
 
+	labels := map[string]string{"kmm.node.kubernetes.io/job-type": "sign",
+		"kmm.node.kubernetes.io/module.name":   moduleName,
+		"kmm.node.kubernetes.io/target-kernel": kernelVersion,
+	}
+
 	mod := kmmv1beta1.Module{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      moduleName,
@@ -183,7 +188,7 @@ var _ = Describe("MakeJobTemplate", func() {
 		mod := mod.DeepCopy()
 		mod.Spec.Selector = nodeSelector
 
-		actual, err := m.MakeJobTemplate(*mod, km.Sign, kernelVersion, unsignedImage, signedImage, true)
+		actual, err := m.MakeJobTemplate(*mod, km.Sign, kernelVersion, unsignedImage, signedImage, labels, true)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(
@@ -210,7 +215,7 @@ var _ = Describe("MakeJobTemplate", func() {
 			FilesToSign:   filelist,
 		}
 
-		actual, err := m.MakeJobTemplate(mod, signConfig, kernelVersion, "", signedImage, pushFlag)
+		actual, err := m.MakeJobTemplate(mod, signConfig, kernelVersion, "", signedImage, labels, pushFlag)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(actual.Spec.Template.Spec.Containers[0].Args).To(ContainElement("-unsignedimage"))
 		Expect(actual.Spec.Template.Spec.Containers[0].Args).To(ContainElement("-pullsecret"))

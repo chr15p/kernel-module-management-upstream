@@ -39,9 +39,11 @@ func (m *helper) GetRelevantSign(mod kmmv1beta1.Module, km kmmv1beta1.KernelMapp
 		signConfig.CertSecret = km.Sign.CertSecret
 	}
 	//append (not overwrite) any files in the km to the defaults
-	for _, v := range km.Sign.FilesToSign {
-		signConfig.FilesToSign = append(signConfig.FilesToSign, v)
-	}
-
+	signConfig.FilesToSign = append(signConfig.FilesToSign, km.Sign.FilesToSign...)
+	/*
+		for _, v := range km.Sign.FilesToSign {
+			signConfig.FilesToSign = append(signConfig.FilesToSign, v)
+		}
+	*/
 	return signConfig
 }

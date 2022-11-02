@@ -10,6 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	v1beta1 "github.com/kubernetes-sigs/kernel-module-management/api/v1beta1"
+	jobHelper "github.com/kubernetes-sigs/kernel-module-management/internal/jobhelper"
 )
 
 // MockSignManager is a mock of SignManager interface.
@@ -36,16 +37,16 @@ func (m *MockSignManager) EXPECT() *MockSignManagerMockRecorder {
 }
 
 // Sync mocks base method.
-func (m_2 *MockSignManager) Sync(ctx context.Context, mod v1beta1.Module, m v1beta1.KernelMapping, targetKernel, previousImage, targetImage string, pushImage bool) (Result, error) {
+func (m_2 *MockSignManager) Sync(ctx context.Context, mod v1beta1.Module, m v1beta1.KernelMapping, targetKernel, imageToSign, targetImage string, pushImage bool) (jobHelper.Result, error) {
 	m_2.ctrl.T.Helper()
-	ret := m_2.ctrl.Call(m_2, "Sync", ctx, mod, m, targetKernel, previousImage, targetImage, pushImage)
-	ret0, _ := ret[0].(Result)
+	ret := m_2.ctrl.Call(m_2, "Sync", ctx, mod, m, targetKernel, imageToSign, targetImage, pushImage)
+	ret0, _ := ret[0].(jobHelper.Result)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Sync indicates an expected call of Sync.
-func (mr *MockSignManagerMockRecorder) Sync(ctx, mod, m, targetKernel, previousImage, targetImage, pushImage interface{}) *gomock.Call {
+func (mr *MockSignManagerMockRecorder) Sync(ctx, mod, m, targetKernel, imageToSign, targetImage, pushImage interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sync", reflect.TypeOf((*MockSignManager)(nil).Sync), ctx, mod, m, targetKernel, previousImage, targetImage, pushImage)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sync", reflect.TypeOf((*MockSignManager)(nil).Sync), ctx, mod, m, targetKernel, imageToSign, targetImage, pushImage)
 }

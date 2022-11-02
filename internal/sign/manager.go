@@ -4,23 +4,9 @@ import (
 	"context"
 
 	kmmv1beta1 "github.com/kubernetes-sigs/kernel-module-management/api/v1beta1"
+	"github.com/kubernetes-sigs/kernel-module-management/internal/jobhelper"
 )
-
-type Status string
-
-const (
-	StatusCompleted  = "completed"
-	StatusCreated    = "created"
-	StatusInProgress = "in progress"
-)
-
-type Result struct {
-	Requeue bool
-	Status  Status
-}
-
-//go:generate mockgen -source=manager.go -package=sign -destination=mock_manager.go
 
 type SignManager interface {
-	Sync(ctx context.Context, mod kmmv1beta1.Module, m kmmv1beta1.KernelMapping, targetKernel string, imageToSign string, targetImage string, pushImage bool) (Result, error)
+	Sync(ctx context.Context, mod kmmv1beta1.Module, m kmmv1beta1.KernelMapping, targetKernel string, imageToSign string, targetImage string, pushImage bool) (jobHelper.Result, error)
 }

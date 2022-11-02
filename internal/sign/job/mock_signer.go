@@ -36,16 +36,16 @@ func (m *MockSigner) EXPECT() *MockSignerMockRecorder {
 }
 
 // MakeJobTemplate mocks base method.
-func (m *MockSigner) MakeJobTemplate(mod v1beta1.Module, signConfig *v1beta1.Sign, targetKernel, previousImage, containerImage string, pushImage bool) (*v1.Job, error) {
+func (m *MockSigner) MakeJobTemplate(mod v1beta1.Module, signConfig *v1beta1.Sign, targetKernel, imageToSign, targetImage string, labels map[string]string, pushImage bool) (*v1.Job, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MakeJobTemplate", mod, signConfig, targetKernel, previousImage, containerImage, pushImage)
+	ret := m.ctrl.Call(m, "MakeJobTemplate", mod, signConfig, targetKernel, imageToSign, targetImage, labels, pushImage)
 	ret0, _ := ret[0].(*v1.Job)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // MakeJobTemplate indicates an expected call of MakeJobTemplate.
-func (mr *MockSignerMockRecorder) MakeJobTemplate(mod, signConfig, targetKernel, previousImage, containerImage, pushImage interface{}) *gomock.Call {
+func (mr *MockSignerMockRecorder) MakeJobTemplate(mod, signConfig, targetKernel, imageToSign, targetImage, labels, pushImage interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeJobTemplate", reflect.TypeOf((*MockSigner)(nil).MakeJobTemplate), mod, signConfig, targetKernel, previousImage, containerImage, pushImage)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeJobTemplate", reflect.TypeOf((*MockSigner)(nil).MakeJobTemplate), mod, signConfig, targetKernel, imageToSign, targetImage, labels, pushImage)
 }

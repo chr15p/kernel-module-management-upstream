@@ -17,7 +17,7 @@ import (
 //go:generate mockgen -source=signer.go -package=signjob -destination=mock_signer.go
 
 type Signer interface {
-	MakeJobTemplate(mod kmmv1beta1.Module, signConfig *kmmv1beta1.Sign, targetKernel, previousImage string, containerImage string, pushImage bool) (*batchv1.Job, error)
+	MakeJobTemplate(mod kmmv1beta1.Module, signConfig *kmmv1beta1.Sign, targetKernel string, imageToSign string, targetImage string, labels map[string]string, pushImage bool) (*batchv1.Job, error)
 }
 
 type signer struct {
@@ -29,7 +29,7 @@ func NewSigner(helper sign.Helper, scheme *runtime.Scheme) Signer {
 	return &signer{helper: helper, scheme: scheme}
 }
 
-func (m *signer) MakeJobTemplate(mod kmmv1beta1.Module, signConfig *kmmv1beta1.Sign, targetKernel string, previousImage string, targetImage string, pushImage bool) (*batchv1.Job, error) {
+func (m *signer) MakeJobTemplate(mod kmmv1beta1.Module, signConfig *kmmv1beta1.Sign, targetKernel string, imageToSign string, targetImage string, labels map[string]string, pushImage bool) (*batchv1.Job, error) {
 	var args []string
 
 	if pushImage {
@@ -38,8 +38,8 @@ func (m *signer) MakeJobTemplate(mod kmmv1beta1.Module, signConfig *kmmv1beta1.S
 		args = append(args, "-no-push")
 	}
 
-	if previousImage != "" {
-		args = append(args, "-unsignedimage", previousImage)
+	if imageToSign != "" {
+		args = append(args, "-unsignedimage", imageToSign)
 	} else if signConfig.UnsignedImage != "" {
 		args = append(args, "-unsignedimage", signConfig.UnsignedImage)
 	} else {
@@ -71,7 +71,7 @@ func (m *signer) MakeJobTemplate(mod kmmv1beta1.Module, signConfig *kmmv1beta1.S
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: mod.Name + "-sign-",
 			Namespace:    mod.Namespace,
-			Labels:       labels(mod, targetKernel),
+			Labels:       labels,
 		},
 		Spec: batchv1.JobSpec{
 			Completions: pointer.Int32(1),
