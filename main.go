@@ -25,13 +25,17 @@ import (
 
 	"github.com/kubernetes-sigs/kernel-module-management/internal/build"
 	"github.com/kubernetes-sigs/kernel-module-management/internal/build/job"
+
 	"github.com/kubernetes-sigs/kernel-module-management/internal/daemonset"
 	"github.com/kubernetes-sigs/kernel-module-management/internal/filter"
+	"github.com/kubernetes-sigs/kernel-module-management/internal/jobhelper"
 	"github.com/kubernetes-sigs/kernel-module-management/internal/metrics"
 	"github.com/kubernetes-sigs/kernel-module-management/internal/module"
 	"github.com/kubernetes-sigs/kernel-module-management/internal/preflight"
 	"github.com/kubernetes-sigs/kernel-module-management/internal/rbac"
 	"github.com/kubernetes-sigs/kernel-module-management/internal/registry"
+	"github.com/kubernetes-sigs/kernel-module-management/internal/sign"
+	"github.com/kubernetes-sigs/kernel-module-management/internal/sign/job"
 	"github.com/kubernetes-sigs/kernel-module-management/internal/statusupdater"
 	"k8s.io/klog/v2/klogr"
 
@@ -125,6 +129,12 @@ func main() {
 	helperAPI := build.NewHelper()
 	makerAPI := job.NewMaker(helperAPI, scheme)
 	buildAPI := job.NewBuildManager(client, makerAPI, helperAPI)
+
+	signerHelperAPI := sign.NewSignerHelper()
+	jobHelperAPI := jobHelper.NewJobHelper(client)
+	signerAPI := signjob.NewSigner(jobHelperAPI, scheme)
+	signAPI := signjob.NewSignJobManager(signerAPI, signerHelperAPI, jobHelperAPI)
+
 	rbacAPI := rbac.NewCreator(client, scheme)
 	daemonAPI := daemonset.NewCreator(client, kernelLabel, scheme)
 	kernelAPI := module.NewKernelMapper()
@@ -132,7 +142,7 @@ func main() {
 	preflightStatusUpdaterAPI := statusupdater.NewPreflightStatusUpdater(client)
 	preflightAPI := preflight.NewPreflightAPI(client, buildAPI, registryAPI, preflightStatusUpdaterAPI, kernelAPI)
 
-	mc := controllers.NewModuleReconciler(client, buildAPI, rbacAPI, daemonAPI, kernelAPI, metricsAPI, filter, registryAPI, moduleStatusUpdaterAPI)
+	mc := controllers.NewModuleReconciler(client, buildAPI, signAPI, rbacAPI, daemonAPI, kernelAPI, metricsAPI, filter, registryAPI, moduleStatusUpdaterAPI)
 
 	if err = mc.SetupWithManager(mgr, kernelLabel); err != nil {
 		setupLogger.Error(err, "unable to create controller", "controller", "Module")
