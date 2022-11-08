@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	kmmv1beta1 "github.com/kubernetes-sigs/kernel-module-management/api/v1beta1"
-	"github.com/kubernetes-sigs/kernel-module-management/internal/sign"
+	"github.com/kubernetes-sigs/kernel-module-management/internal/jobhelper"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,12 +21,12 @@ type Signer interface {
 }
 
 type signer struct {
-	helper sign.Helper
-	scheme *runtime.Scheme
+	jobhelper jobHelper.JobHelper
+	scheme    *runtime.Scheme
 }
 
-func NewSigner(helper sign.Helper, scheme *runtime.Scheme) Signer {
-	return &signer{helper: helper, scheme: scheme}
+func NewSigner(helper jobHelper.JobHelper, scheme *runtime.Scheme) Signer {
+	return &signer{jobhelper: helper, scheme: scheme}
 }
 
 func (m *signer) MakeJobTemplate(mod kmmv1beta1.Module, signConfig *kmmv1beta1.Sign, targetKernel string, imageToSign string, targetImage string, labels map[string]string, pushImage bool) (*batchv1.Job, error) {
@@ -53,18 +53,18 @@ func (m *signer) MakeJobTemplate(mod kmmv1beta1.Module, signConfig *kmmv1beta1.S
 	}
 
 	volumes := []v1.Volume{
-		m.makeImageSigningSecretVolume(signConfig.KeySecret, "key", "key.priv"),
-		m.makeImageSigningSecretVolume(signConfig.CertSecret, "cert", "public.der"),
+		m.jobhelper.MakeSecretVolume(signConfig.KeySecret, "key", "key.priv"),
+		m.jobhelper.MakeSecretVolume(signConfig.CertSecret, "cert", "public.der"),
 	}
 	volumeMounts := []v1.VolumeMount{
-		m.makeImageSecretVolumeMount(signConfig.CertSecret, "/signingcert"),
-		m.makeImageSecretVolumeMount(signConfig.KeySecret, "/signingkey"),
+		m.jobhelper.MakeSecretVolumeMount(signConfig.CertSecret, "/signingcert"),
+		m.jobhelper.MakeSecretVolumeMount(signConfig.KeySecret, "/signingkey"),
 	}
 
 	if mod.Spec.ImageRepoSecret != nil {
 		args = append(args, "-pullsecret", "/docker_config/config.json")
-		volumes = append(volumes, m.makeImageSigningSecretVolume(mod.Spec.ImageRepoSecret, v1.DockerConfigJsonKey, "config.json"))
-		volumeMounts = append(volumeMounts, m.makeImageSecretVolumeMount(mod.Spec.ImageRepoSecret, "/docker_config"))
+		volumes = append(volumes, m.jobhelper.MakeSecretVolume(mod.Spec.ImageRepoSecret, v1.DockerConfigJsonKey, "config.json"))
+		volumeMounts = append(volumeMounts, m.jobhelper.MakeSecretVolumeMount(mod.Spec.ImageRepoSecret, "/docker_config"))
 	}
 
 	job := &batchv1.Job{
@@ -98,42 +98,4 @@ func (m *signer) MakeJobTemplate(mod kmmv1beta1.Module, signConfig *kmmv1beta1.S
 	}
 
 	return job, nil
-}
-
-func (m *signer) makeImageSigningSecretVolume(secretRef *v1.LocalObjectReference, key string, path string) v1.Volume {
-	if secretRef == nil {
-		return v1.Volume{}
-	}
-
-	return v1.Volume{
-		Name: m.volumeNameFromSecretRef(*secretRef),
-		VolumeSource: v1.VolumeSource{
-			Secret: &v1.SecretVolumeSource{
-				SecretName: secretRef.Name,
-				Items: []v1.KeyToPath{
-					{
-						Key:  key,
-						Path: path,
-					},
-				},
-			},
-		},
-	}
-}
-
-func (m *signer) makeImageSecretVolumeMount(secretRef *v1.LocalObjectReference, mountPath string) v1.VolumeMount {
-
-	if secretRef == nil {
-		return v1.VolumeMount{}
-	}
-
-	return v1.VolumeMount{
-		Name:      m.volumeNameFromSecretRef(*secretRef),
-		ReadOnly:  true,
-		MountPath: mountPath,
-	}
-}
-
-func (m *signer) volumeNameFromSecretRef(ref v1.LocalObjectReference) string {
-	return "secret-" + ref.Name
 }

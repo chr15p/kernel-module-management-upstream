@@ -11,6 +11,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	v1beta1 "github.com/kubernetes-sigs/kernel-module-management/api/v1beta1"
 	v1 "k8s.io/api/batch/v1"
+	v10 "k8s.io/api/core/v1"
 )
 
 // MockJobHelper is a mock of JobHelper interface.
@@ -122,4 +123,32 @@ func (m *MockJobHelper) JobLabels(mod v1beta1.Module, targetKernel, jobType stri
 func (mr *MockJobHelperMockRecorder) JobLabels(mod, targetKernel, jobType interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JobLabels", reflect.TypeOf((*MockJobHelper)(nil).JobLabels), mod, targetKernel, jobType)
+}
+
+// MakeSecretVolume mocks base method.
+func (m *MockJobHelper) MakeSecretVolume(secretRef *v10.LocalObjectReference, key, path string) v10.Volume {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MakeSecretVolume", secretRef, key, path)
+	ret0, _ := ret[0].(v10.Volume)
+	return ret0
+}
+
+// MakeSecretVolume indicates an expected call of MakeSecretVolume.
+func (mr *MockJobHelperMockRecorder) MakeSecretVolume(secretRef, key, path interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeSecretVolume", reflect.TypeOf((*MockJobHelper)(nil).MakeSecretVolume), secretRef, key, path)
+}
+
+// MakeSecretVolumeMount mocks base method.
+func (m *MockJobHelper) MakeSecretVolumeMount(secretRef *v10.LocalObjectReference, mountPath string) v10.VolumeMount {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MakeSecretVolumeMount", secretRef, mountPath)
+	ret0, _ := ret[0].(v10.VolumeMount)
+	return ret0
+}
+
+// MakeSecretVolumeMount indicates an expected call of MakeSecretVolumeMount.
+func (mr *MockJobHelperMockRecorder) MakeSecretVolumeMount(secretRef, mountPath interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeSecretVolumeMount", reflect.TypeOf((*MockJobHelper)(nil).MakeSecretVolumeMount), secretRef, mountPath)
 }

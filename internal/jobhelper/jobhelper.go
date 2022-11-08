@@ -9,6 +9,7 @@ import (
 	kmmv1beta1 "github.com/kubernetes-sigs/kernel-module-management/api/v1beta1"
 	"github.com/kubernetes-sigs/kernel-module-management/internal/constants"
 	batchv1 "k8s.io/api/batch/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -36,6 +37,8 @@ type JobHelper interface {
 	DeleteJob(ctx context.Context, job *batchv1.Job) error
 	CreateJob(ctx context.Context, jobTemplate *batchv1.Job) error
 	GetJobStatus(job *batchv1.Job) (Status, bool, error)
+	MakeSecretVolume(secretRef *v1.LocalObjectReference, key string, path string) v1.Volume
+	MakeSecretVolumeMount(secretRef *v1.LocalObjectReference, mountPath string) v1.VolumeMount
 }
 
 type jobHelper struct {
@@ -126,4 +129,42 @@ func (jh *jobHelper) GetJobStatus(job *batchv1.Job) (Status, bool, error) {
 	default:
 		return StatusFailed, false, fmt.Errorf("unknown status: %v", job.Status)
 	}
+}
+
+func (jh *jobHelper) MakeSecretVolume(secretRef *v1.LocalObjectReference, key string, path string) v1.Volume {
+	if secretRef == nil {
+		return v1.Volume{}
+	}
+
+	return v1.Volume{
+		Name: jh.volumeNameFromSecretRef(*secretRef),
+		VolumeSource: v1.VolumeSource{
+			Secret: &v1.SecretVolumeSource{
+				SecretName: secretRef.Name,
+				Items: []v1.KeyToPath{
+					{
+						Key:  key,
+						Path: path,
+					},
+				},
+			},
+		},
+	}
+}
+
+func (jh *jobHelper) MakeSecretVolumeMount(secretRef *v1.LocalObjectReference, mountPath string) v1.VolumeMount {
+
+	if secretRef == nil {
+		return v1.VolumeMount{}
+	}
+
+	return v1.VolumeMount{
+		Name:      jh.volumeNameFromSecretRef(*secretRef),
+		ReadOnly:  true,
+		MountPath: mountPath,
+	}
+}
+
+func (jh *jobHelper) volumeNameFromSecretRef(ref v1.LocalObjectReference) string {
+	return "secret-" + ref.Name
 }

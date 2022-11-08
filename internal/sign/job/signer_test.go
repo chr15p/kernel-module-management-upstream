@@ -5,7 +5,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	kmmv1beta1 "github.com/kubernetes-sigs/kernel-module-management/api/v1beta1"
 	"github.com/kubernetes-sigs/kernel-module-management/internal/constants"
-	"github.com/kubernetes-sigs/kernel-module-management/internal/sign"
+	"github.com/kubernetes-sigs/kernel-module-management/internal/jobhelper"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
@@ -30,12 +30,12 @@ var _ = Describe("MakeJobTemplate", func() {
 	var (
 		ctrl *gomock.Controller
 		m    Signer
-		mh   *sign.MockHelper
+		mh   *jobHelper.MockJobHelper
 	)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
-		mh = sign.NewMockHelper(ctrl)
+		mh = jobHelper.NewMockJobHelper(ctrl)
 		m = NewSigner(mh, scheme)
 	})
 
@@ -66,6 +66,52 @@ var _ = Describe("MakeJobTemplate", func() {
 			},
 			ContainerImage: signedImage,
 		}
+
+		secretMount := v1.VolumeMount{
+			Name:      "secret-securebootcert",
+			ReadOnly:  true,
+			MountPath: "/signingcert",
+		}
+		certMount := v1.VolumeMount{
+			Name:      "secret-securebootkey",
+			ReadOnly:  true,
+			MountPath: "/signingkey",
+		}
+		keysecret := v1.Volume{
+			Name: "secret-securebootkey",
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: "securebootkey",
+					Items: []v1.KeyToPath{
+						{
+							Key:  "key",
+							Path: "key.priv",
+						},
+					},
+				},
+			},
+		}
+		certsecret := v1.Volume{
+			Name: "secret-securebootcert",
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: "securebootcert",
+					Items: []v1.KeyToPath{
+						{
+							Key:  "cert",
+							Path: "public.der",
+						},
+					},
+				},
+			},
+		}
+
+		gomock.InOrder(
+			mh.EXPECT().MakeSecretVolume(km.Sign.KeySecret, "key", "key.priv").Return(keysecret),
+			mh.EXPECT().MakeSecretVolume(km.Sign.CertSecret, "cert", "public.der").Return(certsecret),
+			mh.EXPECT().MakeSecretVolumeMount(km.Sign.CertSecret, "/signingcert").Return(certMount),
+			mh.EXPECT().MakeSecretVolumeMount(km.Sign.KeySecret, "/signingkey").Return(secretMount),
+		)
 
 		expected := &batchv1.Job{
 			ObjectMeta: metav1.ObjectMeta{
@@ -102,58 +148,43 @@ var _ = Describe("MakeJobTemplate", func() {
 									"-cert", "/signingcert/public.der",
 									"-filestosign", filesToSign,
 								},
-								VolumeMounts: []v1.VolumeMount{
-									{
-										Name:      "secret-securebootcert",
-										ReadOnly:  true,
-										MountPath: "/signingcert",
-									},
-									{
-										Name:      "secret-securebootkey",
-										ReadOnly:  true,
-										MountPath: "/signingkey",
-									},
-								},
+								VolumeMounts: []v1.VolumeMount{certMount, secretMount},
 							},
 						},
 						NodeSelector:  nodeSelector,
 						RestartPolicy: v1.RestartPolicyOnFailure,
 
-						Volumes: []v1.Volume{
-							{
-								Name: "secret-securebootkey",
-								VolumeSource: v1.VolumeSource{
-									Secret: &v1.SecretVolumeSource{
-										SecretName: "securebootkey",
-										Items: []v1.KeyToPath{
-											{
-												Key:  "key",
-												Path: "key.priv",
-											},
-										},
-									},
-								},
-							},
-							{
-								Name: "secret-securebootcert",
-								VolumeSource: v1.VolumeSource{
-									Secret: &v1.SecretVolumeSource{
-										SecretName: "securebootcert",
-										Items: []v1.KeyToPath{
-											{
-												Key:  "cert",
-												Path: "public.der",
-											},
-										},
-									},
-								},
-							},
-						},
+						Volumes: []v1.Volume{keysecret, certsecret},
 					},
 				},
 			},
 		}
 		if imagePullSecret != nil {
+			gomock.InOrder(
+				mh.EXPECT().MakeSecretVolume(&v1.LocalObjectReference{Name: "pull-push-secret"}, v1.DockerConfigJsonKey, "config.json").Return(
+					v1.Volume{
+						Name: "secret-pull-push-secret",
+						VolumeSource: v1.VolumeSource{
+							Secret: &v1.SecretVolumeSource{
+								SecretName: "pull-push-secret",
+								Items: []v1.KeyToPath{
+									{
+										Key:  v1.DockerConfigJsonKey,
+										Path: "config.json",
+									},
+								},
+							},
+						},
+					},
+				),
+				mh.EXPECT().MakeSecretVolumeMount(&v1.LocalObjectReference{Name: "pull-push-secret"}, "/docker_config").Return(
+					v1.VolumeMount{
+						Name:      "secret-pull-push-secret",
+						ReadOnly:  true,
+						MountPath: "/docker_config",
+					},
+				),
+			)
 			mod.Spec.ImageRepoSecret = imagePullSecret
 			expected.Spec.Template.Spec.Containers[0].Args = append(expected.Spec.Template.Spec.Containers[0].Args, "-pullsecret")
 			expected.Spec.Template.Spec.Containers[0].Args = append(expected.Spec.Template.Spec.Containers[0].Args, "/docker_config/config.json")
@@ -208,12 +239,62 @@ var _ = Describe("MakeJobTemplate", func() {
 	)
 
 	DescribeTable("should set correct kmod-signer flags", func(filelist []string, pushFlag bool) {
+
 		signConfig := &kmmv1beta1.Sign{
 			UnsignedImage: signedImage,
 			KeySecret:     &v1.LocalObjectReference{Name: "securebootkey"},
 			CertSecret:    &v1.LocalObjectReference{Name: "securebootcert"},
 			FilesToSign:   filelist,
 		}
+
+		secretMount := v1.VolumeMount{
+			Name:      "secret-securebootcert",
+			ReadOnly:  true,
+			MountPath: "/signingcert",
+		}
+		certMount := v1.VolumeMount{
+			Name:      "secret-securebootkey",
+			ReadOnly:  true,
+			MountPath: "/signingkey",
+		}
+		keysecret := v1.Volume{
+			Name: "secret-securebootkey",
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: "securebootkey",
+					Items: []v1.KeyToPath{
+						{
+							Key:  "key",
+							Path: "key.priv",
+						},
+					},
+				},
+			},
+		}
+		certsecret := v1.Volume{
+			Name: "secret-securebootcert",
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: "securebootcert",
+					Items: []v1.KeyToPath{
+						{
+							Key:  "cert",
+							Path: "public.der",
+						},
+					},
+				},
+			},
+		}
+
+		gomock.InOrder(
+			mh.EXPECT().MakeSecretVolume(signConfig.KeySecret, "key", "key.priv").Return(keysecret),
+			mh.EXPECT().MakeSecretVolume(signConfig.CertSecret, "cert", "public.der").Return(certsecret),
+			mh.EXPECT().MakeSecretVolumeMount(signConfig.CertSecret, "/signingcert").Return(certMount),
+			mh.EXPECT().MakeSecretVolumeMount(signConfig.KeySecret, "/signingkey").Return(secretMount),
+
+			mh.EXPECT().MakeSecretVolume(&v1.LocalObjectReference{Name: "pull-push-secret"}, v1.DockerConfigJsonKey, "config.json").Return(certsecret),
+			mh.EXPECT().MakeSecretVolumeMount(&v1.LocalObjectReference{Name: "pull-push-secret"}, "/docker_config").Return(certMount),
+		)
 
 		actual, err := m.MakeJobTemplate(mod, signConfig, kernelVersion, "", signedImage, labels, pushFlag)
 		Expect(err).NotTo(HaveOccurred())
@@ -244,7 +325,7 @@ var _ = Describe("MakeJobTemplate", func() {
 			true,
 		),
 		Entry(
-			"all kkmods and dont push",
+			"all kmods and dont push",
 			[]string{},
 			false,
 		),

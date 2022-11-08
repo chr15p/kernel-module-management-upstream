@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/golang/mock/gomock"
@@ -213,4 +214,56 @@ var _ = Describe("Labels", func() {
 		Entry("should return true if job has changed", map[string]string{jobHashAnnotation: "some other hash"}, true, false),
 		Entry("should return false is job has not changed ", map[string]string{jobHashAnnotation: "some hash"}, false, false),
 	)
+
+	It("should return a valid volume", func() {
+		signConfig := &kmmv1beta1.Sign{
+			KeySecret: &v1.LocalObjectReference{Name: "securebootkey"},
+		}
+		keysecret := v1.Volume{
+			Name: "secret-securebootkey",
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: "securebootkey",
+					Items: []v1.KeyToPath{
+						{
+							Key:  "key",
+							Path: "key.priv",
+						},
+					},
+				},
+			},
+		}
+		mgr := NewJobHelper(clnt)
+		vol := mgr.MakeSecretVolume(signConfig.KeySecret, "key", "key.priv")
+		Expect(vol).To(Equal(keysecret))
+	})
+
+	It("should return an empty volume if signConfig is empty", func() {
+		keysecret := v1.Volume{}
+		mgr := NewJobHelper(clnt)
+		vol := mgr.MakeSecretVolume(nil, "key", "key.priv")
+		Expect(vol).To(Equal(keysecret))
+	})
+
+	It("should return a valid volumeMount", func() {
+		signConfig := &kmmv1beta1.Sign{
+			CertSecret: &v1.LocalObjectReference{Name: "securebootcert"},
+		}
+		secretMount := v1.VolumeMount{
+			Name:      "secret-securebootcert",
+			ReadOnly:  true,
+			MountPath: "/signingcert",
+		}
+
+		mgr := NewJobHelper(clnt)
+		volMount := mgr.MakeSecretVolumeMount(signConfig.CertSecret, "/signingcert")
+		Expect(volMount).To(Equal(secretMount))
+	})
+	It("should return an empty volumeMount if signConfig is empty", func() {
+		secretMount := v1.VolumeMount{}
+
+		mgr := NewJobHelper(clnt)
+		volMount := mgr.MakeSecretVolumeMount(nil, "/signingcert")
+		Expect(volMount).To(Equal(secretMount))
+	})
 })
