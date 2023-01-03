@@ -106,7 +106,6 @@ func (dc *daemonSetGenerator) SetDriverContainerAsDesired(ctx context.Context, d
 	standardLabels := map[string]string{
 		constants.ModuleNameLabel: mod.Name,
 		dc.kernelLabel:            kernelVersion,
-		constants.DaemonSetRole:   "module-loader",
 	}
 
 	ds.SetLabels(
@@ -243,10 +242,7 @@ func (dc *daemonSetGenerator) SetDevicePluginAsDesired(ctx context.Context, ds *
 		},
 	}
 
-	standardLabels := map[string]string{
-		constants.ModuleNameLabel: mod.Name,
-		constants.DaemonSetRole:   "device-plugin",
-	}
+	standardLabels := map[string]string{constants.ModuleNameLabel: mod.Name}
 
 	ds.SetLabels(
 		OverrideLabels(ds.GetLabels(), standardLabels),
@@ -373,6 +369,11 @@ func MakeLoadCommand(spec kmmv1beta1.ModprobeSpec, modName string) []string {
 		fmt.Fprintf(&loadCommand, "cp -r %s/* %s && ", fw, nodeVarLibFirmwarePath)
 	}
 
+	if spec.Kpatch {
+		loadCommand.WriteString("kpatch load " + spec.ModuleName + ".ko")
+		return append(loadCommandShell, loadCommand.String())
+	}
+
 	loadCommand.WriteString("modprobe")
 
 	if rawArgs := spec.RawArgs; rawArgs != nil && len(rawArgs.Load) > 0 {
@@ -415,7 +416,12 @@ func MakeUnloadCommand(spec kmmv1beta1.ModprobeSpec, modName string) []string {
 	}
 
 	var unloadCommand strings.Builder
-	unloadCommand.WriteString("modprobe")
+	if spec.Kpatch {
+		unloadCommand.WriteString("kpatch unload " + spec.ModuleName)
+		return append(unloadCommandShell, unloadCommand.String())
+	} else {
+		unloadCommand.WriteString("modprobe")
+	}
 
 	fwUnloadCommand := ""
 	if fw := spec.FirmwarePath; fw != "" {

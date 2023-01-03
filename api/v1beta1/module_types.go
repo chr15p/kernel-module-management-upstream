@@ -129,6 +129,8 @@ type ModprobeSpec struct {
 	// ModuleName is the name of the Module to be loaded.
 	ModuleName string `json:"moduleName"`
 
+	Kpatch bool `json:"kpatch"`
+
 	// Parameters is an optional list of kernel module parameters to be provided to modprobe.
 	// They should be in the form of key=value and will be separated by spaces in the modprobe command.
 	// The resulting loading command will be: `modprobe module_name ${Parameters}`.
